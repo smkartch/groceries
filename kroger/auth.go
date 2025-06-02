@@ -13,17 +13,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-type Config struct {
-	ClientID     string `json:"kroger-client-id"`
-	ClientSecret string `json:"kroger-client-secret"`
-}
-
-func Authenticate(ctx context.Context, configPath string) (*oauth2.Token, *oauth2.Config, error) {
-	cfg, err := loadConfig(configPath)
-	if err != nil {
-		return nil, nil, err
-	}
-
+func Authenticate(ctx context.Context, cfg Config) (*oauth2.Token, *oauth2.Config, error) {
 	oauthConf := &oauth2.Config{
 		ClientID:     cfg.ClientID,
 		ClientSecret: cfg.ClientSecret,
@@ -67,20 +57,6 @@ func Authenticate(ctx context.Context, configPath string) (*oauth2.Token, *oauth
 
 	saveToken(token)
 	return token, oauthConf, nil
-}
-
-func loadConfig(path string) (*Config, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, fmt.Errorf("could not open config file: %w", err)
-	}
-	defer f.Close()
-
-	var cfg Config
-	if err := json.NewDecoder(f).Decode(&cfg); err != nil {
-		return nil, fmt.Errorf("could not decode config: %w", err)
-	}
-	return &cfg, nil
 }
 
 func loadToken() (*oauth2.Token, error) {

@@ -6,35 +6,44 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 
 	"golang.org/x/oauth2"
 )
 
-type KrogerClient interface {
-	AddToCart(productID string, quantity int) error
-}
-
 type client struct {
+	*Config
 	token     *oauth2.Token
 	oauthConf *oauth2.Config
-	ctx       context.Context
 	presets   Presets
 }
 
-// NewClient creates a new client with a valid token
-func NewClient(ctx context.Context, token *oauth2.Token, conf *oauth2.Config, presets Presets) KrogerClient {
-	return &client{
-		token:     token,
-		oauthConf: conf,
-		ctx:       ctx,
-		presets:   presets,
-	}
+func NewClient() KrogerClient {
+	return &client{}
 }
 
-const defaultLocationID = "015/00414" // Replace with your Kroger store ID
+func (this *client) Init(ctx context.Context, configPath string) error {
+	cfg, err := loadConfig(configPath)
+	if err != nil {
+		return err
+	}
+	this.Config = cfg
 
-func (c *client) AddToCart(itemName string, quantity int) error {
-	productID, ok := c.presets[itemName]
+	this.token, this.oauthConf, err = Authenticate(ctx, *this.Config)
+	if err != nil {
+		return err
+	}
+
+	this.presets, err = LoadPresets("presets.json")
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (this *client) AddToCart(ctx context.Context, itemName string, quantity int) error {
+	productID, ok := this.presets[itemName]
 	if !ok {
 		return fmt.Errorf("no default product ID for item: %s", itemName)
 	}
@@ -46,7 +55,7 @@ func (c *client) AddToCart(itemName string, quantity int) error {
 				"quantity": quantity,
 			},
 		},
-		"locationId": defaultLocationID,
+		"locationId": this.LocationID,
 	}
 
 	body, err := json.Marshal(payload)
@@ -54,12 +63,12 @@ func (c *client) AddToCart(itemName string, quantity int) error {
 		return fmt.Errorf("failed to marshal request body: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(c.ctx, "POST", "https://api.kroger.com/v1/cart/add", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.kroger.com/v1/cart/add", bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+c.token.AccessToken)
+	req.Header.Set("Authorization", "Bearer "+this.token.AccessToken)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)
@@ -76,4 +85,18 @@ func (c *client) AddToCart(itemName string, quantity int) error {
 
 	fmt.Printf("✅ Added %d of %s to your Kroger cart.\n", quantity, itemName)
 	return nil
+}
+
+func loadConfig(path string) (*Config, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("could not open config file: %w", err)
+	}
+	defer f.Close()
+
+	var cfg Config
+	if err := json.NewDecoder(f).Decode(&cfg); err != nil {
+		return nil, fmt.Errorf("could not decode config: %w", err)
+	}
+	return &cfg, nil
 }
