@@ -10,5 +10,9 @@ type Config struct {
 
 type KrogerClient interface {
 	Init(ctx context.Context, configPath string) error
-	AddToCart(ctx context.Context, productID string, quantity int) error
+	AddToCart(ctx context.Context, itemName string, quantity int) error
+	Search(ctx context.Context, term string, limit int) ([]Product, error)
+	ListPresets() Presets
+	Pin(itemName, upc string) error
+	Forget(itemName string) error
 }
