@@ -2,9 +2,14 @@
   "recipes": [
     {
       "name": "Smash Tacos",
+      "servings": 4,
       "ingredients": [
-        "street taco flour tortillas",
-        "mild ground sausage"
+        {
+          "name": "street taco flour tortillas"
+        },
+        {
+          "name": "mild ground sausage"
+        }
       ]
     }
   ]

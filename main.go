@@ -33,7 +33,7 @@ func main() {
 	case "auth-url":
 		runAuthURL()
 		return
-	case "add", "search", "list-presets", "forget", "pin":
+	case "add", "search", "list-presets", "forget", "pin", "cook", "recipe":
 		// fall through to init + dispatch below
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command: %s\n\n", cmd)
@@ -60,6 +60,60 @@ func main() {
 		runForget(client, args)
 	case "pin":
 		runPin(client, args)
+	case "cook":
+		runCook(ctx, client, args)
+	case "recipe":
+		runRecipe(client, args)
+	}
+}
+
+func runCook(ctx context.Context, client kroger.KrogerClient, args []string) {
+	if len(args) < 1 {
+		fail("usage: groceries cook <recipe>")
+	}
+	if err := client.Cook(ctx, args[0]); err != nil {
+		fail("cook: %v", err)
+	}
+}
+
+func runRecipe(client kroger.KrogerClient, args []string) {
+	if len(args) < 1 {
+		fail("usage: groceries recipe <list|add|edit> [name]")
+	}
+	switch args[0] {
+	case "list":
+		recipes, err := client.RecipeList()
+		if err != nil {
+			fail("recipe list: %v", err)
+		}
+		if len(recipes) == 0 {
+			fmt.Println("No recipes yet — try `groceries recipe add <name>`.")
+			return
+		}
+		fmt.Println("Recipes:")
+		for _, r := range recipes {
+			fmt.Printf("  %s (%d ingredients", r.Name, len(r.Ingredients))
+			if r.Servings > 0 {
+				fmt.Printf(", serves %d", r.Servings)
+			}
+			fmt.Println(")")
+		}
+	case "add":
+		if len(args) < 2 {
+			fail("usage: groceries recipe add <name>")
+		}
+		if err := client.RecipeAdd(args[1]); err != nil {
+			fail("recipe add: %v", err)
+		}
+	case "edit":
+		if len(args) < 2 {
+			fail("usage: groceries recipe edit <name>")
+		}
+		if err := client.RecipeEdit(args[1]); err != nil {
+			fail("recipe edit: %v", err)
+		}
+	default:
+		fail("unknown recipe subcommand %q (list|add|edit)", args[0])
 	}
 }
 
@@ -87,20 +141,50 @@ func runForget(client kroger.KrogerClient, args []string) {
 
 func runAdd(ctx context.Context, client kroger.KrogerClient, args []string) {
 	if len(args) < 1 {
-		fail("usage: groceries add <item> [quantity]")
+		fail("usage: groceries add <item> [qty] [<item> [qty]]…")
 	}
-	item := args[0]
-	qty := 1
-	if len(args) >= 2 {
-		n, err := strconv.Atoi(args[1])
-		if err != nil || n < 1 {
-			fail("quantity must be a positive integer, got %q", args[1])
-		}
-		qty = n
-	}
-	if err := client.AddToCart(ctx, item, qty); err != nil {
+	reqs, err := parseAddArgs(args)
+	if err != nil {
 		fail("add: %v", err)
 	}
+	if len(reqs) == 1 {
+		if err := client.AddToCart(ctx, reqs[0].Name, reqs[0].Quantity); err != nil {
+			fail("add: %v", err)
+		}
+		return
+	}
+	if err := client.AddManyToCart(ctx, reqs); err != nil {
+		fail("add: %v", err)
+	}
+}
+
+// parseAddArgs interprets the variadic form: each arg is either a new item
+// (quantity 1) or — if it parses as a positive integer — a quantity override
+// for the previous item. Examples:
+//
+//	add milk                  → milk×1
+//	add milk 2                → milk×2
+//	add milk eggs bread       → milk×1, eggs×1, bread×1
+//	add milk 2 eggs bread 3   → milk×2, eggs×1, bread×3
+func parseAddArgs(args []string) ([]kroger.CartRequest, error) {
+	var reqs []kroger.CartRequest
+	for _, a := range args {
+		if n, err := strconv.Atoi(a); err == nil {
+			if n < 1 {
+				return nil, fmt.Errorf("quantity must be a positive integer, got %q", a)
+			}
+			if len(reqs) == 0 {
+				return nil, fmt.Errorf("quantity %q has no preceding item", a)
+			}
+			reqs[len(reqs)-1].Quantity = n
+			continue
+		}
+		reqs = append(reqs, kroger.CartRequest{Name: a, Quantity: 1})
+	}
+	if len(reqs) == 0 {
+		return nil, fmt.Errorf("no items given")
+	}
+	return reqs, nil
 }
 
 func runSearch(ctx context.Context, client kroger.KrogerClient, args []string) {
@@ -180,7 +264,11 @@ func usage() {
 	fmt.Fprint(os.Stderr, `groceries — small CLI for filling a Kroger cart
 
 Usage:
-  groceries add <item> [quantity]   add an item to the cart (resolves a UPC the first time, remembers it after)
+  groceries add <item> [qty] [<item> [qty]]…   add one or more items (qty defaults to 1; resolves UPCs on first use)
+  groceries cook <recipe>           add a recipe's ingredients (prompts for staples; first cook walks new ingredients)
+  groceries recipe list             list saved recipes
+  groceries recipe add <name>       create a stub recipe and open it in $EDITOR
+  groceries recipe edit <name>      edit an existing recipe in $EDITOR
   groceries search <term>           search Kroger products near your store
   groceries list-presets            show the name → UPC map currently saved
   groceries pin <item> <upc>        set a preset directly (e.g. after a manual search) — non-interactive

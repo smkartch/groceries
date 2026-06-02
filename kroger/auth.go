@@ -3,6 +3,7 @@ package kroger
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -45,10 +46,26 @@ func ExchangeAndSaveCode(ctx context.Context, cfg Config, codeOrURL string) erro
 	}
 	tok, err := newOAuthConfig(cfg).Exchange(ctx, code)
 	if err != nil {
-		return fmt.Errorf("token exchange failed: %w", err)
+		return friendlyExchangeErr(err)
 	}
 	saveToken(tok)
 	return nil
+}
+
+// friendlyExchangeErr translates raw oauth2 token-exchange errors
+// (e.g. "oauth2: server returned error: invalid_grant") into messages
+// that point at the actual fix.
+func friendlyExchangeErr(err error) error {
+	var rerr *oauth2.RetrieveError
+	if errors.As(err, &rerr) {
+		switch rerr.ErrorCode {
+		case "invalid_grant":
+			return fmt.Errorf("Kroger rejected the authorization code (expired or already used). Run `groceries auth-url` for a fresh URL and try again")
+		case "invalid_client":
+			return fmt.Errorf("Kroger rejected the client credentials — check kroger-client-id and kroger-client-secret in config.json")
+		}
+	}
+	return fmt.Errorf("could not exchange auth code with Kroger: %w", err)
 }
 
 // extractCode pulls the `code` value out of either a bare code string or a
@@ -79,11 +96,26 @@ func extractCode(s string) (string, error) {
 func Authenticate(ctx context.Context, cfg Config) (*oauth2.Token, *oauth2.Config, error) {
 	oauthConf := newOAuthConfig(cfg)
 
-	token, err := loadToken()
-	if err == nil && token.Valid() {
-		return token, oauthConf, nil
+	if token, err := loadToken(); err == nil && token != nil {
+		// TokenSource transparently handles "still valid" and "needs refresh".
+		// It only hits the network when the access token has expired.
+		refreshed, refreshErr := oauthConf.TokenSource(ctx, token).Token()
+		if refreshErr == nil {
+			if refreshed.AccessToken != token.AccessToken {
+				saveToken(refreshed)
+			}
+			return refreshed, oauthConf, nil
+		}
+		// Refresh failed — refresh token is stale, revoked, or the server
+		// rejected it. Don't crash; tell the user and fall through to a
+		// fresh browser auth.
+		fmt.Println("🔑 Your saved Kroger login has expired. Reconnecting…")
 	}
 
+	return browserAuth(ctx, oauthConf)
+}
+
+func browserAuth(ctx context.Context, oauthConf *oauth2.Config) (*oauth2.Token, *oauth2.Config, error) {
 	codeCh := make(chan string)
 	http.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
 		code := r.URL.Query().Get("code")
@@ -104,9 +136,9 @@ func Authenticate(ctx context.Context, cfg Config) (*oauth2.Token, *oauth2.Confi
 	code := <-codeCh
 	server.Shutdown(ctx)
 
-	token, err = oauthConf.Exchange(ctx, code)
+	token, err := oauthConf.Exchange(ctx, code)
 	if err != nil {
-		return nil, nil, fmt.Errorf("token exchange failed: %w", err)
+		return nil, nil, friendlyExchangeErr(err)
 	}
 
 	saveToken(token)

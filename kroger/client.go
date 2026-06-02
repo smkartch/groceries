@@ -63,47 +63,94 @@ func (this *client) AddToCart(ctx context.Context, itemName string, quantity int
 		upc = resolved
 	}
 
-	payload := map[string]interface{}{
-		"items": []map[string]interface{}{
-			{
-				"upc":      upc,
-				"quantity": quantity,
-			},
-		},
+	if err := this.putCart(ctx, []CartItem{{UPC: upc, Quantity: quantity}}); err != nil {
+		return err
 	}
+	fmt.Printf("✅ Added %d × %s to your Kroger cart.\n", quantity, itemName)
+	return nil
+}
 
-	body, err := json.Marshal(payload)
+// CartItem is a single line in a batched cart PUT.
+type CartItem struct {
+	UPC      string
+	Quantity int
+	// Label is what we print back to the user — e.g. the friendly name, not the UPC.
+	Label string
+}
+
+// putCart sends one PUT /v1/cart/add request with all items batched together.
+// No user-facing output — callers print their own summary.
+func (this *client) putCart(ctx context.Context, items []CartItem) error {
+	if len(items) == 0 {
+		return nil
+	}
+	payloadItems := make([]map[string]interface{}, len(items))
+	for i, it := range items {
+		payloadItems[i] = map[string]interface{}{"upc": it.UPC, "quantity": it.Quantity}
+	}
+	body, err := json.Marshal(map[string]interface{}{"items": payloadItems})
 	if err != nil {
-		return fmt.Errorf("failed to marshal request body: %w", err)
+		return fmt.Errorf("marshal cart payload: %w", err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut, apiBaseURL+"/v1/cart/add", bytes.NewReader(body))
 	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
+		return fmt.Errorf("build cart request: %w", err)
 	}
-
 	req.Header.Set("Authorization", "Bearer "+this.token.AccessToken)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
+		return fmt.Errorf("send cart request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusNoContent {
 		var respBody bytes.Buffer
 		respBody.ReadFrom(resp.Body)
-		return fmt.Errorf("unexpected response: %d - %s", resp.StatusCode, respBody.String())
+		return fmt.Errorf("cart PUT returned %d - %s", resp.StatusCode, respBody.String())
 	}
-
-	fmt.Printf("✅ Added %d × %s to your Kroger cart.\n", quantity, itemName)
 	return nil
 }
 
 func (this *client) Search(ctx context.Context, term string, limit int) ([]Product, error) {
 	return SearchProducts(ctx, this.token.AccessToken, this.LocationID, term, limit)
+}
+
+// AddManyToCart resolves a list of {name, quantity} pairs into UPCs (via
+// presets or the ask-once flow) and sends them as a single batched PUT. If
+// any item fails to resolve, the caller decides whether to abort or skip via
+// the per-item OnResolveErr hook; on nil, the default is to abort.
+type CartRequest struct {
+	Name     string
+	Quantity int
+}
+
+func (this *client) AddManyToCart(ctx context.Context, reqs []CartRequest) error {
+	if len(reqs) == 0 {
+		return fmt.Errorf("nothing to add")
+	}
+	items := make([]CartItem, 0, len(reqs))
+	for _, r := range reqs {
+		upc, ok := this.presets[r.Name]
+		if !ok {
+			resolved, err := this.resolve(ctx, r.Name)
+			if err != nil {
+				return fmt.Errorf("resolve %q: %w", r.Name, err)
+			}
+			upc = resolved
+		}
+		items = append(items, CartItem{UPC: upc, Quantity: r.Quantity, Label: r.Name})
+	}
+	if err := this.putCart(ctx, items); err != nil {
+		return err
+	}
+	for _, it := range items {
+		fmt.Printf("✅ Added %d × %s to your Kroger cart.\n", it.Quantity, it.Label)
+	}
+	return nil
 }
 
 func (this *client) ListPresets() Presets {
@@ -131,16 +178,24 @@ func (this *client) Forget(itemName string) error {
 // resolve runs the "ask once, remember forever" flow: search Kroger,
 // show the top hits, let the user pick one, and persist the choice.
 func (this *client) resolve(ctx context.Context, itemName string) (string, error) {
-	fmt.Printf("🔎 No preset for %q — searching Kroger…\n", itemName)
-	results, err := this.Search(ctx, itemName, 10)
+	return this.resolveAs(ctx, itemName, itemName)
+}
+
+// resolveAs is resolve with a separate search term and preset key. Callers
+// use this when the user re-searches with a different term during cook: we
+// search Kroger for the new term but save the result under the recipe's
+// original ingredient name, so future cooks of the same recipe hit the preset.
+func (this *client) resolveAs(ctx context.Context, presetKey, searchTerm string) (string, error) {
+	fmt.Printf("🔎 No preset for %q — searching Kroger…\n", searchTerm)
+	results, err := this.Search(ctx, searchTerm, 10)
 	if err != nil {
 		return "", fmt.Errorf("search failed: %w", err)
 	}
 	if len(results) == 0 {
-		return "", fmt.Errorf("no products found for %q", itemName)
+		return "", fmt.Errorf("no products found for %q", searchTerm)
 	}
 
-	fmt.Printf("Top matches for %q:\n", itemName)
+	fmt.Printf("Top matches for %q:\n", searchTerm)
 	for i, p := range results {
 		fmt.Printf("  [%d] %s\n", i+1, p.Display())
 	}
@@ -155,7 +210,7 @@ func (this *client) resolve(ctx context.Context, itemName string) (string, error
 	// pick #1 — it would save the wrong preset and mask the real problem.
 	if readErr != nil && trimmed == "" {
 		fmt.Println()
-		return "", fmt.Errorf("no input received on stdin (running non-interactively?) — run `groceries pin %q <upc>` to set this preset directly", itemName)
+		return "", fmt.Errorf("no input received on stdin (running non-interactively?) — run `groceries pin %q <upc>` to set this preset directly", presetKey)
 	}
 	choice := 1
 	if trimmed != "" {
@@ -167,11 +222,11 @@ func (this *client) resolve(ctx context.Context, itemName string) (string, error
 	}
 
 	picked := results[choice-1]
-	this.presets[itemName] = picked.UPC
+	this.presets[presetKey] = picked.UPC
 	if err := SavePresets(presetsPath, this.presets); err != nil {
-		log.Printf("⚠️ Failed to save preset for %q: %v", itemName, err)
+		log.Printf("⚠️ Failed to save preset for %q: %v", presetKey, err)
 	} else {
-		fmt.Printf("📝 Remembered %q → %s\n", itemName, picked.UPC)
+		fmt.Printf("📝 Remembered %q → %s\n", presetKey, picked.UPC)
 	}
 	return picked.UPC, nil
 }
