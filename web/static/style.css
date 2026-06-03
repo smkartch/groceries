@@ -1,0 +1,406 @@
+/* Cottagecore — a warm summer garden day.
+   Sage + cream base; dusty blue, butter yellow, and peachy pink accents.
+   Recipe-box / index-card layout. No external assets (Pi- and offline-friendly). */
+
+:root {
+  --sage: #8ba888;
+  --sage-deep: #5e7d5c;
+  --sage-soft: #cfe0cb;
+  --cream: #faf6ea;
+  --paper: #fffdf6;
+  --blue: #7fa3c4;
+  --blue-deep: #4f7aa0;
+  --butter: #f4d985;
+  --butter-deep: #e3c155;
+  --peach: #f1b9a6;
+  --peach-deep: #df8e76;
+  --ink: #3f4a3c;
+  --soft-ink: #76806f;
+  --rule: #d8e2d2;
+  --shadow: 0 6px 18px rgba(94, 125, 92, 0.14);
+  --shadow-lift: 0 10px 26px rgba(94, 125, 92, 0.24);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  color: var(--ink);
+  line-height: 1.55;
+  background: #f7f0dd;
+  min-height: 100vh;
+}
+
+/* --- Masthead --- */
+.masthead {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.2rem;
+  padding: 2.4rem 1rem 1.8rem;
+  text-align: center;
+}
+.sprig { font-size: 2.4rem; opacity: 0.8; }
+.title-block h1 {
+  margin: 0;
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--sage-deep);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+.subtitle {
+  margin: 0.2rem 0 0;
+  font-style: italic;
+  color: var(--soft-ink);
+  font-size: 1.02rem;
+}
+
+/* --- Layout --- */
+.layout {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 1.4rem 4rem;
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 2rem;
+  align-items: start;
+}
+@media (max-width: 860px) {
+  .layout { grid-template-columns: 1fr; }
+}
+
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+  border-bottom: 2px dashed var(--sage-soft);
+  padding-bottom: 0.5rem;
+}
+.section-head h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--sage-deep);
+}
+.hint { font-style: italic; color: var(--soft-ink); font-size: 0.9rem; }
+
+/* --- Recipe cards (index cards) --- */
+.recipe-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1.1rem;
+}
+.loading, .empty { color: var(--soft-ink); font-style: italic; }
+
+.recipe-card {
+  position: relative;
+  background:
+    linear-gradient(var(--paper), var(--paper)) padding-box,
+    repeating-linear-gradient(transparent, transparent 31px, var(--rule) 31px, var(--rule) 32px);
+  background-color: var(--paper);
+  border: 1px solid #ece4cf;
+  border-radius: 14px;
+  padding: 1.1rem 1.1rem 1.2rem;
+  box-shadow: var(--shadow);
+  transition: transform 0.15s, box-shadow 0.15s;
+  overflow: hidden;
+}
+.recipe-card::before {
+  /* red margin line, like a real index card */
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0; left: 2.1rem;
+  width: 1.5px;
+  background: rgba(223, 142, 118, 0.45);
+}
+.recipe-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lift); }
+.recipe-card .corner-sprig {
+  position: absolute;
+  top: 0.5rem; right: 0.6rem;
+  font-size: 1.15rem;
+  opacity: 0.75;
+}
+.recipe-card h3 {
+  margin: 0 0 0.2rem 1.1rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+.recipe-meta {
+  margin: 0 0 0.7rem 1.1rem;
+  font-size: 0.86rem;
+  color: var(--soft-ink);
+}
+.recipe-ings {
+  margin: 0 0 0.9rem 1.1rem;
+  font-size: 0.85rem;
+  color: var(--soft-ink);
+  font-style: italic;
+}
+
+.card-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: 1.1rem;
+}
+.servings-stepper {
+  display: inline-flex;
+  align-items: center;
+  border: 1.5px solid var(--sage-soft);
+  border-radius: 999px;
+  background: var(--cream);
+  overflow: hidden;
+}
+.servings-stepper button {
+  border: none;
+  background: transparent;
+  width: 1.7rem; height: 1.7rem;
+  font-size: 1.05rem;
+  cursor: pointer;
+  color: var(--sage-deep);
+}
+.servings-stepper button:hover { background: var(--sage-soft); }
+.servings-stepper .count {
+  min-width: 2.6rem;
+  text-align: center;
+  font-size: 0.9rem;
+}
+.servings-stepper .count small { color: var(--soft-ink); }
+
+/* --- Buttons --- */
+.add-btn {
+  margin-left: auto;
+  border: none;
+  background: var(--sage);
+  color: #fff;
+  border-radius: 999px;
+  padding: 0.42rem 0.95rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(94, 125, 92, 0.25);
+  transition: background 0.15s, transform 0.1s;
+}
+.add-btn:hover { background: var(--sage-deep); }
+.add-btn:active { transform: scale(0.96); }
+
+.primary-btn {
+  width: 100%;
+  border: none;
+  background: linear-gradient(135deg, var(--peach) 0%, var(--butter) 100%);
+  color: #5a3c2e;
+  border-radius: 999px;
+  padding: 0.8rem 1.2rem;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: transform 0.12s, box-shadow 0.15s, filter 0.15s;
+  margin-top: 0.6rem;
+}
+.primary-btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-lift); }
+.primary-btn:disabled { filter: grayscale(0.5) opacity(0.6); cursor: default; transform: none; }
+
+.ghost-btn {
+  border: 1.5px solid var(--sage-soft);
+  background: var(--cream);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 0.6rem 1.2rem;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ghost-btn:hover { border-color: var(--sage); }
+
+.link-btn {
+  border: none;
+  background: none;
+  color: var(--blue-deep);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.85rem;
+  text-decoration: underline dotted;
+}
+
+/* --- Planner sidebar --- */
+.planner-inner {
+  position: sticky;
+  top: 1rem;
+  background: var(--paper);
+  border: 1px solid #ece4cf;
+  border-radius: 18px;
+  padding: 1.3rem 1.3rem 1.5rem;
+  box-shadow: var(--shadow);
+}
+
+.plan-recipes { margin-bottom: 0.5rem; }
+.plan-recipe {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px dotted var(--rule);
+}
+.plan-recipe .pr-name { flex: 1; font-weight: 600; }
+.plan-recipe .pr-serv { font-size: 0.82rem; color: var(--soft-ink); }
+.plan-recipe .pr-remove {
+  border: none; background: none; cursor: pointer;
+  color: var(--peach-deep); font-size: 1.1rem; line-height: 1;
+}
+
+.card-divider {
+  margin: 1.1rem 0 0.5rem;
+  font-size: 1.02rem;
+  color: var(--sage-deep);
+  font-weight: 600;
+}
+
+.cart-lines, .staples { list-style: none; padding: 0; margin: 0; }
+.cart-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px dotted var(--rule);
+  font-size: 0.92rem;
+}
+.cart-line .cl-name { flex: 1; }
+.cart-line .cl-from { display: block; font-size: 0.75rem; color: var(--soft-ink); font-style: italic; }
+.cart-line .cl-nopreset { color: var(--blue-deep); font-size: 0.72rem; }
+.qty-input {
+  width: 3rem;
+  border: 1.5px solid var(--sage-soft);
+  border-radius: 8px;
+  padding: 0.2rem 0.3rem;
+  font-family: inherit;
+  text-align: center;
+  background: var(--cream);
+}
+
+.staple-help, .modal-help { font-size: 0.84rem; color: var(--soft-ink); font-style: italic; margin: 0.2rem 0 0.6rem; }
+.staple {
+  padding: 0.5rem 0;
+  border-bottom: 1px dotted var(--rule);
+}
+.staple .st-name { font-weight: 600; font-size: 0.92rem; }
+.staple .st-from { font-size: 0.74rem; color: var(--soft-ink); font-style: italic; }
+.staple-choices {
+  display: flex;
+  gap: 0.3rem;
+  margin-top: 0.35rem;
+  flex-wrap: wrap;
+}
+.chip-radio { position: relative; }
+.chip-radio input { position: absolute; opacity: 0; pointer-events: none; }
+.chip-radio label {
+  display: inline-block;
+  padding: 0.22rem 0.7rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--sage-soft);
+  background: var(--cream);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.chip-radio input:checked + label {
+  background: var(--sage);
+  color: #fff;
+  border-color: var(--sage-deep);
+}
+.chip-radio.yes input:checked + label { background: var(--sage); }
+.chip-radio.no input:checked + label { background: var(--soft-ink); border-color: var(--soft-ink); }
+.chip-radio.snooze input:checked + label { background: var(--blue); border-color: var(--blue-deep); }
+.snooze-date {
+  margin-top: 0.35rem;
+  font-size: 0.82rem;
+}
+.snooze-date input {
+  border: 1.5px solid var(--blue);
+  border-radius: 8px;
+  padding: 0.2rem 0.4rem;
+  font-family: inherit;
+  background: #fff;
+}
+
+.snoozed-note {
+  font-size: 0.82rem;
+  color: var(--soft-ink);
+  font-style: italic;
+  background: rgba(127, 163, 196, 0.12);
+  border-radius: 10px;
+  padding: 0.5rem 0.7rem;
+  margin: 0.6rem 0 0;
+}
+
+.status {
+  margin-top: 0.7rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 12px;
+  font-size: 0.9rem;
+}
+.status.ok { background: rgba(139, 168, 136, 0.2); color: var(--sage-deep); }
+.status.err { background: rgba(223, 142, 118, 0.18); color: #9a4b34; }
+.status.busy { background: rgba(244, 217, 133, 0.25); color: #7a6322; }
+
+/* --- Modal --- */
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(63, 74, 60, 0.45);
+  display: flex; align-items: center; justify-content: center;
+  padding: 1rem;
+  z-index: 50;
+}
+/* The `hidden` attribute's UA `display:none` loses to `.overlay{display:flex}`,
+   so make the attribute win — otherwise the modal shows on load and Cancel
+   can't dismiss it. */
+.overlay[hidden] { display: none; }
+.modal {
+  background: var(--paper);
+  border-radius: 18px;
+  padding: 1.6rem 1.7rem;
+  max-width: 560px;
+  width: 100%;
+  max-height: 86vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-lift);
+}
+.modal h2 { margin: 0 0 0.2rem; color: var(--sage-deep); }
+.resolve-list { margin: 0.8rem 0; }
+.resolve-item {
+  padding: 0.7rem 0;
+  border-bottom: 1px dotted var(--rule);
+}
+.resolve-item .ri-name { font-weight: 600; margin-bottom: 0.3rem; }
+.resolve-item select {
+  width: 100%;
+  padding: 0.45rem 0.5rem;
+  border: 1.5px solid var(--sage-soft);
+  border-radius: 10px;
+  font-family: inherit;
+  background: var(--cream);
+}
+.resolve-item .ri-note { color: var(--peach-deep); font-size: 0.85rem; }
+.resolve-item label.skip { font-size: 0.82rem; color: var(--soft-ink); display: inline-flex; gap: 0.3rem; margin-top: 0.3rem; }
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+.modal-actions .primary-btn { width: auto; margin: 0; }
+
+.footer {
+  text-align: center;
+  color: var(--soft-ink);
+  font-style: italic;
+  font-size: 0.85rem;
+  padding: 1.5rem 1rem 2.5rem;
+}

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"groceries/kroger"
+	"groceries/web"
 )
 
 const configPath = "config.json"
@@ -33,7 +34,7 @@ func main() {
 	case "auth-url":
 		runAuthURL()
 		return
-	case "add", "search", "list-presets", "forget", "pin", "cook", "recipe":
+	case "add", "search", "list-presets", "forget", "pin", "cook", "recipe", "serve":
 		// fall through to init + dispatch below
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command: %s\n\n", cmd)
@@ -64,6 +65,22 @@ func main() {
 		runCook(ctx, client, args)
 	case "recipe":
 		runRecipe(client, args)
+	case "serve":
+		runServe(client, args)
+	}
+}
+
+func runServe(client kroger.KrogerClient, args []string) {
+	addr := ":8090"
+	if len(args) > 0 {
+		addr = args[0]
+	}
+	srv, err := web.NewServer(client)
+	if err != nil {
+		fail("serve: %v", err)
+	}
+	if err := srv.ListenAndServe(addr); err != nil {
+		fail("serve: %v", err)
 	}
 }
 
@@ -269,6 +286,7 @@ Usage:
   groceries recipe list             list saved recipes
   groceries recipe add <name>       create a stub recipe and open it in $EDITOR
   groceries recipe edit <name>      edit an existing recipe in $EDITOR
+  groceries serve [addr]            launch the cottagecore web meal-planner (default :8090)
   groceries search <term>           search Kroger products near your store
   groceries list-presets            show the name → UPC map currently saved
   groceries pin <item> <upc>        set a preset directly (e.g. after a manual search) — non-interactive

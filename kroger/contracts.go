@@ -20,4 +20,10 @@ type KrogerClient interface {
 	ListPresets() Presets
 	Pin(itemName, upc string) error
 	Forget(itemName string) error
+
+	// PlanPreview and AddPlan are the headless meal-planner flow that the web
+	// UI drives. PlanPreview scales+aggregates recipes into cart lines and
+	// staple prompts; AddPlan resolves UPCs and sends the batched cart PUT.
+	PlanPreview(entries []PlanEntry) (*Preview, error)
+	AddPlan(ctx context.Context, req AddPlanRequest) (*AddResult, error)
 }

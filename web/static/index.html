@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌿 Kitchen Garden Planner</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="sprig left">🌿</div>
+  <div class="title-block">
+    <h1>The Kitchen Garden</h1>
+    <p class="subtitle">plan the week · fill the cart · mind the pantry</p>
+  </div>
+  <div class="sprig right">🌾</div>
+</header>
+
+<main class="layout">
+
+  <!-- Recipe box -->
+  <section class="recipe-box" aria-label="Recipe cards">
+    <div class="section-head">
+      <h2>Recipe Box</h2>
+      <span class="hint">pick a card, set servings, add it to the week</span>
+    </div>
+    <div id="recipe-grid" class="recipe-grid">
+      <p class="loading">gathering recipes from the garden…</p>
+    </div>
+  </section>
+
+  <!-- This week's plan -->
+  <aside class="planner" aria-label="This week's plan">
+    <div class="planner-inner">
+      <div class="section-head">
+        <h2>This Week</h2>
+        <button id="clear-plan" class="link-btn" hidden>clear</button>
+      </div>
+
+      <div id="plan-recipes" class="plan-recipes">
+        <p class="empty">No meals planned yet. Add a recipe card to begin. 🧺</p>
+      </div>
+
+      <div id="cart-section" class="cart-section" hidden>
+        <h3 class="card-divider">🛒 Going in the cart</h3>
+        <ul id="cart-lines" class="cart-lines"></ul>
+
+        <div id="staples-block" hidden>
+          <h3 class="card-divider">🧂 Running low?</h3>
+          <p class="staple-help">Pantry staples don't auto-add. Tell me which to top up.</p>
+          <ul id="staples" class="staples"></ul>
+        </div>
+
+        <p id="snoozed-note" class="snoozed-note" hidden></p>
+
+        <button id="add-to-cart" class="primary-btn">Add to Kroger cart 🌸</button>
+        <div id="status" class="status" hidden></div>
+      </div>
+    </div>
+  </aside>
+
+</main>
+
+<!-- Disambiguation modal -->
+<div id="resolve-overlay" class="overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="resolve-title">
+    <h2 id="resolve-title">Which one did you mean?</h2>
+    <p class="modal-help">A few items need a one-time choice. I'll remember it next time.</p>
+    <div id="resolve-list" class="resolve-list"></div>
+    <div class="modal-actions">
+      <button id="resolve-cancel" class="ghost-btn">Cancel</button>
+      <button id="resolve-confirm" class="primary-btn">Confirm &amp; add</button>
+    </div>
+  </div>
+</div>
+
+<footer class="footer">🌷 grown with care · the kitchen garden planner 🌷</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
