@@ -101,12 +101,12 @@ func (this *client) RecipeEdit(name string) error {
 	return nil
 }
 
-// pickEditor honors $VISUAL, then $EDITOR, then falls back to vi.
+// pickEditor honors $VISUAL, then $EDITOR, then falls back to nano.
 func pickEditor() string {
 	for _, env := range []string{"VISUAL", "EDITOR"} {
 		if v := strings.TrimSpace(os.Getenv(env)); v != "" {
 			return v
 		}
 	}
-	return "vi"
+	return "nano"
 }
