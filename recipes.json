@@ -5,10 +5,16 @@
       "servings": 4,
       "ingredients": [
         {
-          "name": "street taco flour tortillas"
+          "name": "street taco flour tortillas",
+          "purchase": "1 package"
         },
         {
-          "name": "mild ground sausage"
+          "name": "mild ground sausage",
+          "purchase": "1 lb"
+        },
+        {
+          "name": "eggs",
+          "purchase": "1/2 dozen"
         }
       ]
     }
